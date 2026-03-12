@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Noise Pollution – IRIS</title>
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+<nav>
+  <a href="/" class="nav-logo">
+    <div class="nav-logo-icon">🌍</div>
+    <div><div class="nav-logo-text">IRIS</div><div class="nav-logo-sub">Environmental Intelligence</div></div>
+  </a>
+  <div class="nav-links">
+    <a href="/">Home</a><a href="/aqi">AQI</a>
+    <a href="/water">Water Quality</a><a href="/noise" class="active">Noise Pollution</a><a href="/emissions">Emissions</a>
+  </div>
+</nav>
+
+<div class="page-header">
+  <div class="page-header-inner">
+    <div class="section-label">Noise Pollution Monitor</div>
+    <div class="page-title">Urban Sound Environment Analysis</div>
+    <div class="page-desc">Ambient noise levels across residential, commercial, and industrial zones measured in decibels (dB) for all Indian states.</div>
+  </div>
+</div>
+
+<div class="content-area">
+
+  <!-- SAFE LIMITS BANNER -->
+  <div class="card" style="margin-bottom:24px">
+    <div class="card-title">CPCB Permissible Noise Limits</div>
+    <div class="three-col" style="margin-top:4px">
+      <div style="text-align:center;padding:20px;background:#ffffff;border-radius:12px;border:1px solid rgba(0,201,134,0.2)">
+        <div style="font-size:32px;font-weight:700;color:var(--green);font-family:'DM Mono',monospace">55 dB</div>
+        <div style="font-size:14px;font-weight:600;margin:8px 0 4px">Residential Zone</div>
+        <div style="font-size:12px;color:var(--text3)">Day: 55 dB · Night: 45 dB</div>
+      </div>
+      <div style="text-align:center;padding:20px;background:#ffffff;border-radius:12px;border:1px solid rgba(245,200,66,0.2)">
+        <div style="font-size:32px;font-weight:700;color:var(--yellow);font-family:'DM Mono',monospace">65 dB</div>
+        <div style="font-size:14px;font-weight:600;margin:8px 0 4px">Commercial Zone</div>
+        <div style="font-size:12px;color:var(--text3)">Day: 65 dB · Night: 55 dB</div>
+      </div>
+      <div style="text-align:center;padding:20px;background:#ffffff;border-radius:12px;border:1px solid rgba(255,107,107,0.2)">
+        <div style="font-size:32px;font-weight:700;color:var(--orange);font-family:'DM Mono',monospace">75 dB</div>
+        <div style="font-size:14px;font-weight:600;margin:8px 0 4px">Industrial Zone</div>
+        <div style="font-size:12px;color:var(--text3)">Day: 75 dB · Night: 70 dB</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="controls">
+    <div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:6px">Select State</div>
+      <select id="state-select"></select>
+    </div>
+  </div>
+
+  <!-- ZONE BARS -->
+  <div class="two-col" style="margin-bottom:24px">
+    <div class="card">
+      <div class="card-title">Live Noise Levels by Zone</div>
+      <div id="zone-bars">
+        <div class="zone-bar" style="margin-bottom:20px">
+          <div class="zone-bar-label"><span>🏠 Residential</span><span id="db-residential" style="font-family:'DM Mono',monospace;color:var(--green)">– dB</span></div>
+          <div class="zone-bar-track"><div class="zone-bar-fill" id="bar-residential" style="width:0%;background:var(--green)"></div></div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-top:4px"><span>0</span><span>Safe: 55</span><span>100 dB</span></div>
+        </div>
+        <div class="zone-bar" style="margin-bottom:20px">
+          <div class="zone-bar-label"><span>🏪 Commercial</span><span id="db-commercial" style="font-family:'DM Mono',monospace;color:var(--yellow)">– dB</span></div>
+          <div class="zone-bar-track"><div class="zone-bar-fill" id="bar-commercial" style="width:0%;background:var(--yellow)"></div></div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-top:4px"><span>0</span><span>Safe: 65</span><span>100 dB</span></div>
+        </div>
+        <div class="zone-bar">
+          <div class="zone-bar-label"><span>🏭 Industrial</span><span id="db-industrial" style="font-family:'DM Mono',monospace;color:var(--orange)">– dB</span></div>
+          <div class="zone-bar-track"><div class="zone-bar-fill" id="bar-industrial" style="width:0%;background:var(--orange)"></div></div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-top:4px"><span>0</span><span>Safe: 75</span><span>100 dB</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Zone Comparison Chart</div>
+      <div class="chart-wrap"><canvas id="noise-chart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- HISTORY CHART -->
+  <div class="card" style="margin-bottom:24px">
+    <div class="card-title" id="trend-title">Noise Trend – All Zones</div>
+    <div class="chart-wrap"><canvas id="noise-trend"></canvas></div>
+  </div>
+
+  <!-- INFO CARDS -->
+  <div class="two-col">
+    <div class="card">
+      <div class="card-title">Health Impacts of Noise Pollution</div>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;gap:12px"><span style="font-size:22px">😴</span><div><b>Sleep Disruption</b><br><span style="font-size:13px;color:var(--text2)">Noise above 40 dB at night disrupts REM sleep cycles, affecting cognitive function and immunity.</span></div></div>
+        <div style="display:flex;gap:12px"><span style="font-size:22px">❤️</span><div><b>Cardiovascular Stress</b><br><span style="font-size:13px;color:var(--text2)">Chronic noise exposure raises blood pressure and increases heart disease risk by up to 20%.</span></div></div>
+        <div style="display:flex;gap:12px"><span style="font-size:22px">👂</span><div><b>Hearing Loss</b><br><span style="font-size:13px;color:var(--text2)">Prolonged exposure to 85+ dB causes irreversible noise-induced hearing loss (NIHL).</span></div></div>
+        <div style="display:flex;gap:12px"><span style="font-size:22px">🧠</span><div><b>Cognitive Impairment</b><br><span style="font-size:13px;color:var(--text2)">Children in noisy environments show impaired reading, memory, and concentration.</span></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Major Noise Sources in Indian Cities</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px">
+        <span class="pollutant-tag">🚗 Road Traffic (dominant source)</span>
+        <span class="pollutant-tag">✈️ Aircraft Noise</span>
+        <span class="pollutant-tag">🚂 Railway Operations</span>
+        <span class="pollutant-tag">🏗️ Construction Activity</span>
+        <span class="pollutant-tag">🎆 Festivals & Crackers</span>
+        <span class="pollutant-tag">🏭 Industrial Operations</span>
+        <span class="pollutant-tag">📢 Loudspeakers & Events</span>
+        <span class="pollutant-tag">🔊 Street Vendors</span>
+      </div>
+      <div style="background:rgba(26,86,219,0.06);border:1px solid rgba(26,86,219,0.15);padding:14px;border-radius:8px">
+        <div style="font-size:13px;font-weight:600;#1a56db;margin-bottom:6px">Did You Know?</div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.7">India's major cities (Delhi, Mumbai, Kolkata, Chennai) consistently exceed WHO noise guidelines. The WHO recommends outdoor ambient noise below 53 dB for good health outcomes.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<footer><p>🌍 <span>IRIS</span> – Noise Pollution Module · Based on CPCB noise monitoring data & urban environmental surveys</p></footer>
+
+<button class="chatbot-fab" id="chatbot-fab">🤖</button>
+<div class="chatbot-window" id="chatbot-window">
+  <div class="chatbot-header">
+    <div class="chatbot-title"><div class="chatbot-avatar">🌍</div><div><div class="chatbot-name">IRIS AI</div><div class="chatbot-status">● Online</div></div></div>
+    <button class="chatbot-close" id="chatbot-close">✕</button>
+  </div>
+  <div class="chatbot-messages" id="chatbot-messages"></div>
+  <div class="chatbot-input-area"><input class="chatbot-input" placeholder="Ask about noise levels…" id="chatbot-input"><button class="chatbot-send">➤</button></div>
+</div>
+<div class="update-ticker"><span class="ticker-live">● LIVE</span><span>Noise Monitor · <span class="ticker-time"></span></span></div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="/static/js/main.js"></script>
+<script src="/static/js/charts.js"></script>
+<script src="/static/js/chatbot.js"></script>
+<script>
+let noiseChart = null, noiseTrend = null;
+
+populateStateSelect('state-select');
+
+function getNoiseStatus(db, safe) {
+  if (db <= safe) return { color: 'var(--green)', label: 'Safe' };
+  if (db <= safe + 10) return { color: 'var(--yellow)', label: 'Moderate' };
+  return { color: 'var(--red)', label: 'Exceeds Limit' };
+}
+
+async function loadData(state) {
+  const data = await fetchData(`/api/noise?state=${encodeURIComponent(state)}`);
+  if (!data || !data.length) return;
+
+  const zones = { Residential: null, Commercial: null, Industrial: null };
+  const safeLimits = { Residential: 55, Commercial: 65, Industrial: 75 };
+
+  data.forEach(d => { if (zones[d.zone_type] === null) zones[d.zone_type] = d.decibel_level; });
+
+  ['Residential', 'Commercial', 'Industrial'].forEach(zone => {
+    const db = zones[zone] || 0;
+    const safe = safeLimits[zone];
+    const key = zone.toLowerCase();
+    document.getElementById(`db-${key}`).textContent = `${formatNum(db, 1)} dB`;
+    document.getElementById(`bar-${key}`).style.width = `${Math.min(100, db)}%`;
+  });
+
+  if (noiseChart) { noiseChart.destroy(); noiseChart = null; }
+  noiseChart = createBarChart('noise-chart',
+    ['Residential', 'Commercial', 'Industrial'],
+    [{ data: [zones.Residential || 0, zones.Commercial || 0, zones.Industrial || 0],
+       color: ['rgba(0,201,134,0.7)', 'rgba(245,200,66,0.7)', 'rgba(255,140,66,0.7)'] }],
+    `Noise Levels – ${state}`
+  );
+
+  // Trend: use all data, grouped by zone
+  const resByZone = {};
+  data.forEach(d => {
+    if (!resByZone[d.zone_type]) resByZone[d.zone_type] = [];
+    resByZone[d.zone_type].push(d.decibel_level);
+  });
+
+  const maxLen = Math.max(...Object.values(resByZone).map(v => v.length));
+  const labels = Array.from({ length: Math.min(7, maxLen) }, (_, i) => `Day ${i+1}`);
+
+  if (noiseTrend) { noiseTrend.destroy(); noiseTrend = null; }
+  const ctx = document.getElementById('noise-trend')?.getContext('2d');
+  if (ctx) {
+    noiseTrend = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Residential', data: (resByZone.Residential||[]).slice(0,7), borderColor: 'var(--green)', backgroundColor: 'rgba(0,201,134,0.06)', borderWidth: 2, fill: true, tension: 0.4, pointRadius: 3 },
+          { label: 'Commercial', data: (resByZone.Commercial||[]).slice(0,7), borderColor: 'var(--yellow)', backgroundColor: 'rgba(245,200,66,0.06)', borderWidth: 2, fill: true, tension: 0.4, pointRadius: 3 },
+          { label: 'Industrial', data: (resByZone.Industrial||[]).slice(0,7), borderColor: 'var(--orange)', backgroundColor: 'rgba(255,140,66,0.06)', borderWidth: 2, fill: true, tension: 0.4, pointRadius: 3 },
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: true, labels: { color: '#6b7280', font: { size: 11, family: "'DM Sans',sans-serif" } } } },
+        scales: { x: { grid: { color: 'rgba(30,60,140,0.07)' }, ticks: { color: '#6b7280' } },
+                  y: { grid: { color: 'rgba(30,60,140,0.07)' }, ticks: { color: '#6b7280' }, title: { display: true, text: 'dB', color: '#6b7280' } } }
+      }
+    });
+  }
+  document.getElementById('trend-title').textContent = `Noise Trend – ${state}`;
+}
+
+document.getElementById('state-select').addEventListener('change', e => loadData(e.target.value));
+loadData('Delhi');
+</script>
+</body>
+</html>

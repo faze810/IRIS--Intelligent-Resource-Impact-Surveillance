@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AQI Monitor – IRIS</title>
+<link rel="stylesheet" href="/static/css/style.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+/* ── AQI PAGE SPECIFIC ── */
+.selector-bar {
+  background:#fff; border:2px solid var(--accent);
+  border-radius:16px; padding:20px 28px;
+  display:flex; align-items:center; gap:20px; margin-bottom:28px;
+  box-shadow:0 4px 20px rgba(26,86,219,0.12);
+  flex-wrap:wrap;
+}
+.selector-bar-label { font-size:15px; font-weight:700; color:var(--text); white-space:nowrap; }
+.selector-bar select {
+  min-width:240px; font-size:16px; padding:12px 18px;
+  border-radius:10px; border:2px solid var(--border2);
+  font-weight:600; color:var(--text); background:#fff;
+  cursor:pointer; flex:1;
+}
+.selector-bar select:focus { border-color:var(--accent); outline:none; box-shadow:0 0 0 3px rgba(26,86,219,0.12); }
+.selector-hint {
+  font-size:12px; color:var(--text3); font-style:italic;
+  display:flex; align-items:center; gap:6px;
+}
+.selector-hint::before { content:''; width:8px; height:8px; background:var(--green); border-radius:50%; animation:pulse 1.8s infinite; flex-shrink:0; }
+
+/* ── AQI BANNER ── */
+.aqi-banner {
+  border-radius:20px; padding:0; margin-bottom:28px;
+  display:grid; grid-template-columns:auto 1px 1fr;
+  overflow:hidden; border:1px solid var(--border);
+  box-shadow:var(--shadow-lg); background:#fff;
+  transition:all 0.4s ease;
+  min-height:160px;
+}
+.aqi-banner-accent { width:8px; background:var(--green); transition:background 0.5s; }
+.aqi-banner-score {
+  padding:28px 36px; display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  background:linear-gradient(135deg,#f8faff,#fff);
+  border-right:1px solid var(--border); min-width:180px;
+}
+.aqi-big-num {
+  font-size:72px; font-weight:800; line-height:1;
+  font-family:'DM Mono',monospace; transition:color 0.4s;
+  letter-spacing:-2px;
+}
+.aqi-score-label { font-size:11px; font-weight:700; color:var(--text3); text-transform:uppercase; letter-spacing:0.1em; margin-top:4px; }
+.aqi-banner-divider { width:1px; background:var(--border); }
+.aqi-banner-info { padding:24px 32px; display:flex; flex-direction:column; justify-content:center; gap:8px; }
+.aqi-banner-state { font-size:24px; font-weight:700; color:var(--text); }
+.aqi-banner-badge {
+  display:inline-block; font-size:13px; font-weight:700;
+  padding:4px 14px; border-radius:100px; width:fit-content;
+}
+.aqi-banner-desc { font-size:14px; color:var(--text2); line-height:1.6; max-width:480px; }
+
+/* AQI Scale */
+.scale-wrap { margin-top:10px; }
+.scale-bar { display:flex; height:6px; border-radius:3px; overflow:hidden; gap:2px; margin-bottom:4px; }
+.scale-bar div { flex:1; border-radius:2px; }
+.scale-labels { display:flex; justify-content:space-between; font-size:10px; color:var(--text3); font-family:'DM Mono',monospace; }
+.scale-ptr-row { height:6px; position:relative; margin-top:2px; }
+.scale-ptr { position:absolute; top:0; width:10px; height:10px; background:var(--text); border-radius:50%; transform:translateX(-50%); transition:left 0.6s ease; margin-top:-2px; }
+
+/* ── POLLUTANT CARDS ── */
+.p-cards {
+  display:grid; grid-template-columns:repeat(5,1fr); gap:14px; margin-bottom:28px;
+}
+.p-card {
+  background:#fff; border:1px solid var(--border); border-radius:14px;
+  padding:18px 16px; box-shadow:var(--shadow); transition:all 0.3s;
+  position:relative; overflow:hidden;
+}
+.p-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; transition:background 0.4s; }
+.p-card:nth-child(1)::before { background:#ea580c; }
+.p-card:nth-child(2)::before { background:#dc2626; }
+.p-card:nth-child(3)::before { background:#d97706; }
+.p-card:nth-child(4)::before { background:#7c3aed; }
+.p-card:nth-child(5)::before { background:#1a56db; }
+.p-card:hover { transform:translateY(-2px); box-shadow:var(--shadow-lg); }
+.p-card-name { font-size:11px; font-weight:700; color:var(--text3); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:10px; }
+.p-card-val { font-size:30px; font-weight:800; font-family:'DM Mono',monospace; line-height:1; transition:color 0.4s; color:var(--text); }
+.p-card-unit { font-size:11px; color:var(--text3); margin-top:3px; margin-bottom:10px; }
+.p-card-track { height:5px; background:var(--bg3); border-radius:3px; overflow:hidden; margin-bottom:6px; }
+.p-card-fill { height:100%; border-radius:3px; transition:width 0.8s ease; }
+.p-card-safe { font-size:10px; color:var(--text3); }
+.p-card-st { font-size:11px; font-weight:700; margin-top:6px; padding:2px 8px; border-radius:100px; display:inline-block; }
+
+/* ── MAIN ROW: MAP + CHART ── */
+.main-row { display:grid; grid-template-columns:380px 1fr; gap:20px; margin-bottom:28px; }
+
+.map-card {
+  background:#fff; border:1px solid var(--border); border-radius:16px;
+  overflow:hidden; box-shadow:var(--shadow); display:flex; flex-direction:column;
+}
+.card-hdr {
+  padding:14px 18px; border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between;
+  background:var(--bg3);
+}
+.card-hdr-title { font-size:12px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:0.08em; }
+#state-map { flex:1; min-height:360px; }
+
+.chart-card {
+  background:#fff; border:1px solid var(--border); border-radius:16px;
+  box-shadow:var(--shadow); display:flex; flex-direction:column;
+}
+.chart-card-top {
+  padding:16px 20px; border-bottom:1px solid var(--border);
+  background:var(--bg3); display:flex; align-items:center;
+  justify-content:space-between; gap:12px; flex-wrap:wrap;
+}
+.chart-card-title { font-size:14px; font-weight:700; color:var(--text); }
+.vtabs { display:flex; gap:4px; }
+.vt {
+  padding:6px 12px; border-radius:7px; border:1px solid var(--border2);
+  background:transparent; color:var(--text2); font-size:12px;
+  font-family:'DM Sans',sans-serif; cursor:pointer; transition:all 0.2s; font-weight:500;
+}
+.vt.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+.vt:hover:not(.active) { background:rgba(26,86,219,0.06); color:var(--accent); }
+.chart-area { flex:1; padding:16px; min-height:300px; position:relative; }
+.chart-area canvas { width:100%!important; height:100%!important; }
+
+/* ── GUIDE ── */
+.guide-card { background:#fff; border:1px solid var(--border); border-radius:16px; padding:24px; box-shadow:var(--shadow); }
+.gtabs { display:flex; gap:6px; margin-bottom:20px; flex-wrap:wrap; }
+.gt { padding:7px 14px; border-radius:8px; border:1px solid var(--border2); background:transparent; color:var(--text2); font-size:13px; font-family:'DM Sans',sans-serif; cursor:pointer; transition:all 0.2s; font-weight:500; }
+.gt.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+.gt:hover:not(.active) { background:rgba(26,86,219,0.06); color:var(--accent); }
+
+.guide-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; }
+.guide-box { background:var(--bg3); border:1px solid var(--border); border-radius:12px; padding:16px; }
+.guide-box-head { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:var(--accent); margin-bottom:8px; }
+.guide-box p { font-size:13px; color:var(--text2); line-height:1.7; }
+.tag-wrap { display:flex; flex-wrap:wrap; gap:5px; }
+.gtag { font-size:11px; padding:3px 9px; border-radius:6px; font-weight:500; }
+.gtag-blue { background:rgba(26,86,219,0.07); color:var(--accent); border:1px solid rgba(26,86,219,0.15); }
+.gtag-red { background:rgba(220,38,38,0.07); color:var(--red); border:1px solid rgba(220,38,38,0.15); }
+.guide-limit { grid-column:1/-1; background:rgba(26,86,219,0.06); border:1px solid rgba(26,86,219,0.15); border-radius:10px; padding:12px 16px; font-size:13px; color:var(--text2); }
+.guide-limit strong { color:var(--accent); }
+
+/* ── LOADING OVERLAY ── */
+.loading-flash {
+  position:fixed; inset:0; background:rgba(255,255,255,0.6);
+  display:flex; align-items:center; justify-content:center;
+  z-index:5000; pointer-events:none;
+  opacity:0; transition:opacity 0.15s;
+}
+.loading-flash.show { opacity:1; }
+.loading-spinner { width:40px; height:40px; border:3px solid rgba(26,86,219,0.15); border-top-color:var(--accent); border-radius:50%; animation:spin 0.6s linear infinite; }
+
+@media(max-width:1100px){ .p-cards{grid-template-columns:repeat(3,1fr)} }
+@media(max-width:800px){ .p-cards{grid-template-columns:repeat(2,1fr)}; .main-row{grid-template-columns:1fr}; .guide-grid{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="nav-logo">
+    <div class="nav-logo-icon">🌍</div>
+    <div><div class="nav-logo-text">IRIS</div><div class="nav-logo-sub">Environmental Intelligence</div></div>
+  </a>
+  <div class="nav-links">
+    <a href="/">Home</a>
+    <a href="/aqi" class="active">AQI</a>
+    <a href="/water">Water Quality</a>
+    <a href="/noise">Noise Pollution</a>
+    <a href="/emissions">Emissions</a>
+  </div>
+</nav>
+
+<!-- Loading flash -->
+<div class="loading-flash" id="loader"><div class="loading-spinner"></div></div>
+
+<div class="page-header">
+  <div class="page-header-inner">
+    <div class="section-label">Air Quality Index</div>
+    <div class="page-title">National AQI Monitor</div>
+    <div class="page-desc">Pick any Indian state below — the AQI score, all pollutant values, map location, trend chart and 3-day AI forecast all update instantly.</div>
+  </div>
+</div>
+
+<div class="content-area">
+
+  <!-- ① STATE SELECTOR — prominent, always visible -->
+  <div class="selector-bar">
+    <div class="selector-bar-label">📍 Select a State:</div>
+    <select id="state-select"></select>
+    <div class="selector-hint">All sections update live when you switch state</div>
+  </div>
+
+  <!-- ② BIG AQI BANNER -->
+  <div class="aqi-banner" id="aqi-banner">
+    <div class="aqi-banner-accent" id="banner-accent"></div>
+    <div class="aqi-banner-score">
+      <div class="aqi-big-num" id="banner-num" style="color:#6b7280">–</div>
+      <div class="aqi-score-label">AQI Score</div>
+    </div>
+    <div class="aqi-banner-divider"></div>
+    <div class="aqi-banner-info">
+      <div class="aqi-banner-state" id="banner-state">Select a state above to begin ↑</div>
+      <div class="aqi-banner-badge" id="banner-badge">–</div>
+      <div class="aqi-banner-desc" id="banner-desc">Choose any Indian state from the dropdown to instantly see its current air quality index, health advisory, and live pollutant readings.</div>
+      <div class="scale-wrap">
+        <div class="scale-bar">
+          <div style="background:#059669;flex:1"></div>
+          <div style="background:#84cc16;flex:1"></div>
+          <div style="background:#d97706;flex:1"></div>
+          <div style="background:#ea580c;flex:1"></div>
+          <div style="background:#dc2626;flex:1"></div>
+          <div style="background:#991b1b;flex:1"></div>
+        </div>
+        <div class="scale-labels"><span>0 Good</span><span>50</span><span>100</span><span>200</span><span>300</span><span>400+</span></div>
+        <div class="scale-ptr-row"><div class="scale-ptr" id="scale-ptr" style="left:0%"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ③ POLLUTANT CARDS — 5 across -->
+  <div class="p-cards">
+    <div class="p-card">
+      <div class="p-card-name">PM2.5</div>
+      <div class="p-card-val" id="v-pm25">–</div>
+      <div class="p-card-unit">µg/m³</div>
+      <div class="p-card-track"><div class="p-card-fill" id="f-pm25" style="background:#ea580c;width:0%"></div></div>
+      <div class="p-card-safe">Safe ≤ 60</div>
+      <div class="p-card-st" id="s-pm25"></div>
+    </div>
+    <div class="p-card">
+      <div class="p-card-name">PM10</div>
+      <div class="p-card-val" id="v-pm10">–</div>
+      <div class="p-card-unit">µg/m³</div>
+      <div class="p-card-track"><div class="p-card-fill" id="f-pm10" style="background:#dc2626;width:0%"></div></div>
+      <div class="p-card-safe">Safe ≤ 100</div>
+      <div class="p-card-st" id="s-pm10"></div>
+    </div>
+    <div class="p-card">
+      <div class="p-card-name">SO₂</div>
+      <div class="p-card-val" id="v-so2">–</div>
+      <div class="p-card-unit">µg/m³</div>
+      <div class="p-card-track"><div class="p-card-fill" id="f-so2" style="background:#d97706;width:0%"></div></div>
+      <div class="p-card-safe">Safe ≤ 80</div>
+      <div class="p-card-st" id="s-so2"></div>
+    </div>
+    <div class="p-card">
+      <div class="p-card-name">CO</div>
+      <div class="p-card-val" id="v-co">–</div>
+      <div class="p-card-unit">mg/m³</div>
+      <div class="p-card-track"><div class="p-card-fill" id="f-co" style="background:#7c3aed;width:0%"></div></div>
+      <div class="p-card-safe">Safe ≤ 4</div>
+      <div class="p-card-st" id="s-co"></div>
+    </div>
+    <div class="p-card">
+      <div class="p-card-name">NO₂</div>
+      <div class="p-card-val" id="v-no2">–</div>
+      <div class="p-card-unit">µg/m³</div>
+      <div class="p-card-track"><div class="p-card-fill" id="f-no2" style="background:#1a56db;width:0%"></div></div>
+      <div class="p-card-safe">Safe ≤ 40</div>
+      <div class="p-card-st" id="s-no2"></div>
+    </div>
+  </div>
+
+  <!-- ④ MAP + CHART side by side -->
+  <div class="main-row">
+    <div class="map-card">
+      <div class="card-hdr">
+        <div class="card-hdr-title">📍 <span id="map-label">State Map</span></div>
+        <div style="font-size:11px;color:var(--text3)">Zoom & pan enabled</div>
+      </div>
+      <div id="state-map"></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-card-top">
+        <div class="chart-card-title" id="chart-heading">Select a state to view chart</div>
+        <div class="vtabs">
+          <button class="vt active" data-tab="current">📊 Current</button>
+          <button class="vt" data-tab="history">📈 7-Day History</button>
+          <button class="vt" data-tab="predict">🔮 AI Forecast</button>
+        </div>
+      </div>
+      <div class="chart-area"><canvas id="aqi-chart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ⑤ POLLUTANT GUIDE -->
+  <div class="guide-card">
+    <div class="card-title" style="margin-bottom:16px">📖 Pollutant Reference Guide</div>
+    <div class="gtabs">
+      <button class="gt active" data-p="pm25">🔴 PM2.5</button>
+      <button class="gt" data-p="pm10">🟠 PM10</button>
+      <button class="gt" data-p="so2">🟡 SO₂</button>
+      <button class="gt" data-p="co">🟣 CO</button>
+      <button class="gt" data-p="no2">🔵 NO₂</button>
+    </div>
+    <div id="guide-detail"></div>
+  </div>
+
+</div>
+
+<footer><p>🌍 <span>IRIS</span> – Air Quality Monitor · Sources: CPCB, State Pollution Control Boards</p></footer>
+
+<button class="chatbot-fab" id="chatbot-fab">🤖</button>
+<div class="chatbot-window" id="chatbot-window">
+  <div class="chatbot-header">
+    <div class="chatbot-title"><div class="chatbot-avatar">🌍</div><div><div class="chatbot-name">IRIS AI</div><div class="chatbot-status">● Online</div></div></div>
+    <button class="chatbot-close" id="chatbot-close">✕</button>
+  </div>
+  <div class="chatbot-messages" id="chatbot-messages"></div>
+  <div class="chatbot-input-area"><input class="chatbot-input" placeholder="Ask about AQI…" id="chatbot-input"><button class="chatbot-send">➤</button></div>
+</div>
+<div class="update-ticker"><span class="ticker-live">● LIVE</span><span>AQI Monitor · <span class="ticker-time"></span></span></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="/static/js/main.js"></script>
+<script src="/static/js/map.js"></script>
+<script src="/static/js/charts.js"></script>
+<script src="/static/js/chatbot.js"></script>
+<script>
+const AQI_DESC = {
+  good:       'Air quality is satisfactory. Outdoor activities are safe for everyone.',
+  moderate:   'Air quality is acceptable. Sensitive individuals may experience mild discomfort.',
+  poor:       'Sensitive groups may experience health effects. General public less likely to be affected.',
+  'very-poor':'Everyone may begin to experience health effects. Sensitive groups may experience serious effects.',
+  severe:     'Health alert — everyone may experience serious health effects. Avoid all outdoor activity.',
+};
+
+const GUIDE = {
+  pm25:{ name:'PM2.5 – Fine Particulate Matter', what:'Particles smaller than 2.5 µm that penetrate deep into lungs and bloodstream — the most dangerous form of air pollution.', causes:['Vehicle exhaust','Industrial combustion','Agricultural burning','Construction dust','Solid-fuel cooking'], health:['Asthma & bronchitis','Cardiovascular disease','Lung cancer risk','Reduced child lung function','Premature death in vulnerable groups'], safe:'CPCB 24-hr: 60 µg/m³  ·  WHO guideline: 15 µg/m³' },
+  pm10:{ name:'PM10 – Coarse Particulate Matter', what:'Inhalable particles ≤10 µm. Deposit in upper airways; less dangerous than PM2.5 but still cause significant respiratory irritation.', causes:['Road dust','Construction & demolition','Industrial processes','Mining activities','Pollen & biological particles'], health:['Upper respiratory irritation','Aggravated asthma','Reduced lung function','Eye & throat irritation'], safe:'CPCB 24-hr: 100 µg/m³  ·  WHO guideline: 45 µg/m³' },
+  so2:{  name:'SO₂ – Sulphur Dioxide', what:'Colourless pungent gas formed when sulphur-containing fuels burn. Reacts with moisture to form sulphuric acid and acid rain.', causes:['Coal power plants','Oil refining','Metal smelting','Volcanic activity','Industrial boilers'], health:['Airway narrowing','Acid rain formation','Aggravated asthma','Eye & nose irritation'], safe:'CPCB 24-hr: 80 µg/m³  ·  WHO guideline: 40 µg/m³' },
+  co:{   name:'CO – Carbon Monoxide', what:'Colourless, odourless gas from incomplete combustion. Binds to haemoglobin 200× stronger than oxygen, depriving body of O₂.', causes:['Vehicle exhausts','Industrial combustion','Wildfires','Faulty gas appliances','Biomass burning'], health:['Headaches & dizziness','Confusion & unconsciousness','Fatal poisoning at high levels','Cardiovascular stress'], safe:'CPCB 8-hr: 4 mg/m³  ·  WHO guideline: 4 mg/m³' },
+  no2:{  name:'NO₂ – Nitrogen Dioxide', what:'Reddish-brown reactive gas from high-temperature combustion. Key precursor to ground-level ozone and fine particulate formation.', causes:['Diesel vehicles','Power plants','Industrial manufacturing','Agricultural fertilisers','Gas cookers'], health:['Airway inflammation','Increased infection risk','Worsened asthma','Smog formation'], safe:'CPCB annual: 40 µg/m³  ·  WHO annual: 10 µg/m³' },
+};
+
+let aqiChart = null, currentData = [], currentTab = 'current';
+
+function showLoader(on) {
+  document.getElementById('loader').classList.toggle('show', on);
+}
+
+function cardStatus(v, safe, warn) {
+  if (v <= safe) return { cls:'status-good', label:'✓ Safe', color:'#059669' };
+  if (v <= warn) return { cls:'status-moderate', label:'⚠ Moderate', color:'#d97706' };
+  return { cls:'status-very-poor', label:'✕ High', color:'#dc2626' };
+}
+
+function updateBanner(state, d) {
+  const aqi = d.aqi || 0, st = getAQIStatus(aqi);
+  document.getElementById('banner-num').textContent = aqi;
+  document.getElementById('banner-num').style.color = st.color;
+  document.getElementById('banner-state').textContent = state;
+  document.getElementById('banner-accent').style.background = st.color;
+  const badge = document.getElementById('banner-badge');
+  badge.textContent = st.label;
+  badge.style.cssText = `display:inline-block;font-size:14px;font-weight:700;padding:5px 18px;border-radius:100px;margin-bottom:8px;background:${st.color}22;color:${st.color};border:1px solid ${st.color}44`;
+  document.getElementById('banner-desc').textContent = AQI_DESC[st.cls] || '';
+  document.getElementById('scale-ptr').style.left = Math.min(97, Math.round((aqi / 400) * 100)) + '%';
+}
+
+function updateCards(d) {
+  const metrics = [
+    { k:'pm25', v:d.pm25, safe:60,  warn:120, dec:1 },
+    { k:'pm10', v:d.pm10, safe:100, warn:200, dec:1 },
+    { k:'so2',  v:d.so2,  safe:80,  warn:160, dec:1 },
+    { k:'co',   v:d.co,   safe:4,   warn:8,   dec:2 },
+    { k:'no2',  v:d.no2,  safe:40,  warn:80,  dec:1 },
+  ];
+  metrics.forEach(m => {
+    const v = m.v || 0, st = cardStatus(v, m.safe, m.warn);
+    const el = document.getElementById(`v-${m.k}`);
+    el.textContent = formatNum(v, m.dec);
+    el.style.color = st.color;
+    document.getElementById(`f-${m.k}`).style.width = Math.min(100, Math.round((v / (m.safe * 2)) * 100)) + '%';
+    const s = document.getElementById(`s-${m.k}`);
+    s.className = `p-card-st ${st.cls}`; s.textContent = st.label;
+  });
+}
+
+function renderChart(tab, data, state) {
+  currentTab = tab;
+  if (aqiChart) { aqiChart.destroy(); aqiChart = null; }
+  if (!data || !data.length) return;
+
+  if (tab === 'current') {
+    const d = data[0] || {};
+    document.getElementById('chart-heading').textContent = `Pollutant Breakdown — ${state}`;
+    aqiChart = createBarChart('aqi-chart',
+      ['PM2.5', 'PM10', 'SO₂', 'CO×10', 'NO₂'],
+      [{ data: [d.pm25||0, d.pm10||0, d.so2||0, (d.co||0)*10, d.no2||0],
+         color: ['rgba(234,88,12,.75)','rgba(220,38,38,.75)','rgba(217,119,6,.75)','rgba(124,58,237,.75)','rgba(26,86,219,.75)'] }]
+    );
+  } else if (tab === 'history') {
+    const rows = data.slice(0, 7).reverse();
+    document.getElementById('chart-heading').textContent = `7-Day AQI Trend — ${state}`;
+    aqiChart = createLineChart('aqi-chart',
+      rows.map(d => fmtLabel(d.timestamp)),
+      [{ label:'AQI', data:rows.map(d => d.aqi||0), color:'#ea580c', bg:'rgba(234,88,12,.07)' }]
+    );
+  } else {
+    document.getElementById('chart-heading').textContent = `3-Day AI Forecast — ${state}`;
+    fetchData(`/api/predict/aqi?state=${encodeURIComponent(state)}&days=3`).then(pred => {
+      if (!pred) return;
+      if (aqiChart) { aqiChart.destroy(); aqiChart = null; }
+      const ctx = document.getElementById('aqi-chart')?.getContext('2d');
+      if (!ctx) return;
+      aqiChart = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: pred.map(d => d.date), datasets: [{
+          label: 'Predicted AQI',
+          data: pred.map(d => Math.round(d.aqi||0)),
+          backgroundColor: pred.map(d => getAQIStatus(d.aqi||0).color + 'bb'),
+          borderColor: pred.map(d => getAQIStatus(d.aqi||0).color),
+          borderWidth: 1.5, borderRadius: 8
+        }]},
+        options: { responsive:true, maintainAspectRatio:false,
+          plugins: { legend:{display:false}, tooltip:{backgroundColor:'rgba(255,255,255,.97)',borderColor:'rgba(26,86,219,.18)',borderWidth:1,titleColor:'#111827',bodyColor:'#374151'} },
+          scales: { x:{grid:{color:'rgba(30,60,140,.06)'},ticks:{color:'#6b7280',maxRotation:0,font:{family:"'DM Sans',sans-serif",size:12},}},
+                    y:{grid:{color:'rgba(30,60,140,.06)'},ticks:{color:'#6b7280'},beginAtZero:true } } }
+      });
+    });
+  }
+}
+
+function renderGuide(key) {
+  const g = GUIDE[key]; if (!g) return;
+  document.getElementById('guide-detail').innerHTML = `
+    <div class="guide-grid">
+      <div class="guide-box"><div class="guide-box-head">What is it?</div><p>${g.what}</p></div>
+      <div class="guide-box"><div class="guide-box-head">Main Sources</div><div class="tag-wrap">${g.causes.map(c=>`<span class="gtag gtag-blue">⚡ ${c}</span>`).join('')}</div></div>
+      <div class="guide-box"><div class="guide-box-head">Health Effects</div><div class="tag-wrap">${g.health.map(h=>`<span class="gtag gtag-red">⚠️ ${h}</span>`).join('')}</div></div>
+      <div class="guide-limit"><strong>Safe Limits —</strong> ${g.safe}</div>
+    </div>`;
+}
+
+async function loadState(state) {
+  showLoader(true);
+  const data = await fetchData(`/api/aqi?state=${encodeURIComponent(state)}`);
+  currentData = data || [];
+  initStateMap('state-map', state);
+  document.getElementById('map-label').textContent = state;
+  if (data && data.length) {
+    updateBanner(state, data[0]);
+    updateCards(data[0]);
+    renderChart(currentTab, data, state);
+  }
+  showLoader(false);
+}
+
+populateStateSelect('state-select');
+document.getElementById('state-select').addEventListener('change', e => loadState(e.target.value));
+document.querySelectorAll('.vt').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.vt').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderChart(btn.dataset.tab, currentData, document.getElementById('state-select').value);
+  });
+});
+document.querySelectorAll('.gt').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.gt').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active'); renderGuide(btn.dataset.p);
+  });
+});
+
+renderGuide('pm25');
+loadState('Delhi');
+</script>
+</body>
+</html>
